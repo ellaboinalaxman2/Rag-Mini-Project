@@ -1,33 +1,32 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-function App() {
-  const [status, setStatus] = useState("Connecting...");
+import MainLayout from "./components/layout/MainLayout";
+import Dashboard from "./pages/Dashboard";
+import Documents from "./pages/Documents";
+import Assistant from "./pages/Assistant";
 
-  useEffect(() => {
-    fetch(`${import.meta.env.VITE_API_URL}/api/health`)
-      .then((response) => response.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus("Backend connection failed"));
-  }, []);
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
+export default function App() {
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0b1020",
-        color: "white",
-        display: "grid",
-        placeItems: "center",
-        fontFamily: "Arial",
-      }}
-    >
-      <div>
-        <h1>Intelligent RAG Routing</h1>
-        <p>AI Knowledge Platform</p>
-        <p>Backend Status: {status}</p>
-      </div>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/documents" element={<Documents />} />
+            <Route path="/assistant" element={<Assistant />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
-
-export default App;
