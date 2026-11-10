@@ -20,13 +20,14 @@ def _run_query(cypher: str, **params):
         return [dict(record) for record in result]
 
 
-def _traverse_one_hop(entity_ids: list[str]):
+def _traverse_one_hop(entity_ids: list[str], document_id: str | None = None):
     if not entity_ids:
         return [], []
 
     cypher = """
     MATCH (s:Entity)-[r:RELATES_TO]-(t:Entity)
     WHERE s.id IN $entity_ids
+      AND ($document_id IS NULL OR r.document_id = $document_id)
     RETURN s.id AS source_id, s.name AS source_name, s.type AS source_type,
            t.id AS target_id, t.name AS target_name, t.type AS target_type,
            r.relation_type AS relation_type,
@@ -36,7 +37,10 @@ def _traverse_one_hop(entity_ids: list[str]):
     LIMIT $limit
     """
     rows = _run_query(
-        cypher, entity_ids=entity_ids, limit=MAX_RELATIONSHIPS
+        cypher,
+        entity_ids=entity_ids,
+        document_id=document_id,
+        limit=MAX_RELATIONSHIPS,
     )
 
     relationships = []
@@ -64,7 +68,11 @@ def _traverse_one_hop(entity_ids: list[str]):
     return relationships, list(new_entity_ids)
 
 
-def _traverse_multi_hop(entity_ids: list[str], depth: int = 2):
+def _traverse_multi_hop(
+    entity_ids: list[str],
+    depth: int = 2,
+    document_id: str | None = None,
+):
     if not entity_ids:
         return [], []
 
@@ -73,6 +81,8 @@ def _traverse_multi_hop(entity_ids: list[str], depth: int = 2):
     cypher = f"""
     MATCH path = (s:Entity)-[:RELATES_TO*1..{depth}]-(t:Entity)
     WHERE s.id IN $entity_ids
+      AND ALL(rel IN relationships(path)
+              WHERE $document_id IS NULL OR rel.document_id = $document_id)
     UNWIND relationships(path) AS r
     RETURN DISTINCT
         startNode(r).id AS source_id,
@@ -88,7 +98,10 @@ def _traverse_multi_hop(entity_ids: list[str], depth: int = 2):
     LIMIT $limit
     """
     rows = _run_query(
-        cypher, entity_ids=entity_ids, limit=MAX_RELATIONSHIPS
+        cypher,
+        entity_ids=entity_ids,
+        document_id=document_id,
+        limit=MAX_RELATIONSHIPS,
     )
 
     relationships = []
@@ -116,13 +129,16 @@ def _traverse_multi_hop(entity_ids: list[str], depth: int = 2):
     return relationships, list(new_entity_ids)
 
 
-def _fetch_mentions(entity_ids: list[str]):
+def _fetch_mentions(
+    entity_ids: list[str], document_id: str | None = None
+):
     if not entity_ids:
         return []
 
     cypher = """
     MATCH (e:Entity)-[m:MENTIONED_IN]->(d:Document)
     WHERE e.id IN $entity_ids
+      AND ($document_id IS NULL OR d.id = $document_id)
     RETURN DISTINCT
         e.id AS entity_id,
         e.name AS entity_name,
@@ -132,11 +148,16 @@ def _fetch_mentions(entity_ids: list[str]):
     LIMIT $limit
     """
     return _run_query(
-        cypher, entity_ids=entity_ids, limit=MAX_ENTITIES * 5
+        cypher,
+        entity_ids=entity_ids,
+        document_id=document_id,
+        limit=MAX_ENTITIES * 5,
     )
 
 
-def retrieve_graph_evidence(query: str, depth: int = 2):
+def retrieve_graph_evidence(
+    query: str, depth: int = 2, document_id: str | None = None
+):
     """
     Full Graph RAG retrieval pipeline:
       1. Preprocess query
@@ -157,6 +178,19 @@ def retrieve_graph_evidence(query: str, depth: int = 2):
         candidate_phrases + keywords, max_results=MAX_ENTITIES
     )
 
+    if document_id and matched_entities:
+        seed_mentions = _fetch_mentions(
+            [entity["id"] for entity in matched_entities], document_id
+        )
+        document_entity_ids = {
+            mention["entity_id"] for mention in seed_mentions
+        }
+        matched_entities = [
+            entity
+            for entity in matched_entities
+            if entity["id"] in document_entity_ids
+        ]
+
     if not matched_entities:
         return {
             "query": query,
@@ -170,14 +204,14 @@ def retrieve_graph_evidence(query: str, depth: int = 2):
     seed_ids = [e["id"] for e in matched_entities]
 
     # 1-hop traversal
-    one_hop_rels, one_hop_ids = _traverse_one_hop(seed_ids)
+    one_hop_rels, one_hop_ids = _traverse_one_hop(seed_ids, document_id)
 
     # Multi-hop (only if requested depth > 1)
     multi_hop_rels = []
     multi_hop_ids = []
     if depth > 1:
         multi_hop_rels, multi_hop_ids = _traverse_multi_hop(
-            seed_ids, depth=depth
+            seed_ids, depth=depth, document_id=document_id
         )
 
     # Deduplicate relationships by (source_id, target_id, relation_type, chunk_id)
@@ -197,7 +231,7 @@ def retrieve_graph_evidence(query: str, depth: int = 2):
 
     all_entity_ids = set(seed_ids) | set(one_hop_ids) | set(multi_hop_ids)
 
-    mentions = _fetch_mentions(list(all_entity_ids))
+    mentions = _fetch_mentions(list(all_entity_ids), document_id)
 
     return {
         "query": query,

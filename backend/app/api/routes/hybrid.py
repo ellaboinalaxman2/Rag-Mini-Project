@@ -39,9 +39,15 @@ def hybrid_query_endpoint(request: HybridRequest):
             document_id=request.document_id,
             generate_answer=True,
         )
+        if result.get("answer_error"):
+            raise RuntimeError(result["answer_error"])
+        if not isinstance(result.get("answer"), str) or not result["answer"].strip():
+            raise RuntimeError("The LLM provider returned an empty answer.")
         return {"success": True, **result}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail=f"Hybrid query failed: {exc}"

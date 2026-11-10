@@ -36,6 +36,7 @@ def run_hybrid(
     query: str,
     document_id: str | None = None,
     generate_answer: bool = True,
+    complexity_info: dict | None = None,
 ):
     vector_top_k = int(_cfg("HYBRID_VECTOR_TOP_K", 10))
     graph_depth = int(_cfg("HYBRID_GRAPH_DEPTH", 2))
@@ -55,6 +56,12 @@ def run_hybrid(
 
     vector_results = retrieval["vector_results"]
     graph_results = retrieval["graph_results"]
+
+    # Filter vector results by relevance gate so irrelevant chunks are dropped
+    relevance_threshold = float(os.getenv("VECTOR_RELEVANCE_THRESHOLD", "0.45"))
+    vector_results = [
+        r for r in vector_results if r.get("similarity", 0) >= relevance_threshold
+    ]
 
     # --- 2. Weighted RRF ---
     ranked = rank_evidence(
@@ -106,20 +113,19 @@ def run_hybrid(
         return response
 
     api_key = os.getenv("GROQ_API_KEY")
-    model_name = os.getenv("GROQ_MODEL")
+    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
-    if not api_key or not model_name:
-        response["answer"] = None
-        response["answer_error"] = (
-            "GROQ_API_KEY or GROQ_MODEL not configured."
-        )
-        return response
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY is not configured.")
 
     if not deduped:
-        response["answer"] = (
-            "I could not find relevant evidence in either the vector "
-            "store or the knowledge graph."
+        from app.vector_rag.answer import _general_fallback
+        fallback_res = _general_fallback(
+            query=query,
+            reason="no_hybrid_evidence",
+            complexity_info=complexity_info,
         )
+        response.update(fallback_res)
         return response
 
     user_message = (
@@ -139,7 +145,10 @@ def run_hybrid(
             ],
             temperature=0.2,
         )
-        response["answer"] = llm_response.choices[0].message.content
+        answer = llm_response.choices[0].message.content
+        if not answer or not answer.strip():
+            raise RuntimeError("The LLM provider returned an empty answer.")
+        response["answer"] = answer
         response["model"] = model_name
         if llm_response.usage:
             response["usage"] = {
@@ -148,7 +157,13 @@ def run_hybrid(
                 "total_tokens": llm_response.usage.total_tokens,
             }
     except Exception as exc:
-        response["answer"] = None
-        response["answer_error"] = f"LLM call failed: {exc}"
+        print(f"[hybrid] Primary LLM call failed ({exc}); routing to adaptive general fallback")
+        from app.vector_rag.answer import _general_fallback
+        fallback_res = _general_fallback(
+            query=query,
+            reason=f"hybrid_llm_failed: {exc}",
+            complexity_info=complexity_info,
+        )
+        response.update(fallback_res)
 
     return response

@@ -8,12 +8,29 @@ import {
   Cpu,
   Clock,
   Zap,
+  Info,
 } from "lucide-react";
 
 import Topbar from "../components/layout/Topbar";
 import { askRouted } from "../services/chatService";
 
-function RouteBadge({ engine }) {
+function RouteBadge({ engine, retrievalMethod, burden, model }) {
+  if (retrievalMethod === "general_fallback") {
+    const burdenColors = {
+      high: "border-rose-500/40 bg-rose-500/10 text-rose-400",
+      medium: "border-amber-500/40 bg-amber-500/10 text-amber-400",
+      low: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+    };
+    const color = burdenColors[burden] || "border-amber-500/40 bg-amber-500/10 text-amber-400";
+    const shortModel = model ? model.split("/").pop() : "";
+    return (
+      <span className={`badge ${color} flex items-center gap-1.5`}>
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+        General AI • {burden ? `${burden.toUpperCase()} Burden` : "Adaptive"}
+        {shortModel && <span className="opacity-75 font-mono text-[10px]">({shortModel})</span>}
+      </span>
+    );
+  }
   const styles = {
     vector: "border-electric-500/40 bg-electric-500/10 text-electric-400",
     graph: "border-violet-500/40 bg-violet-500/10 text-violet-400",
@@ -118,6 +135,10 @@ export default function Assistant() {
           role: "assistant",
           content: result.answer || "(No answer generated)",
           routing: result.routing,
+          retrieval_method: result.retrieval_method,
+          fallback_reason: result.fallback_reason,
+          burden: result.burden || result.routing?.burden,
+          burden_reason: result.burden_reason || result.routing?.burden_reason,
           sources: result.sources || [],
           meta: {
             model: result.model,
@@ -195,9 +216,31 @@ export default function Assistant() {
                     {msg.content}
                   </div>
 
+                  {msg.retrieval_method === "general_fallback" && (
+                    <div className="mt-3 flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                      <Info className="mt-0.5 h-4 w-4 flex-none text-amber-400" />
+                      <div className="space-y-1">
+                        <div className="font-medium text-amber-200">
+                          This answer is from general AI knowledge, not your uploaded documents.
+                        </div>
+                        {msg.burden && (
+                          <div className="text-[11px] text-amber-400/80">
+                            Evaluated cognitive burden: <strong className="uppercase text-amber-300">{msg.burden}</strong>
+                            {msg.burden_reason && <span> — {msg.burden_reason}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {msg.routing && (
                     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3 text-[11px]">
-                      <RouteBadge engine={msg.routing.selected_engine} />
+                      <RouteBadge
+                        engine={msg.routing.selected_engine}
+                        retrievalMethod={msg.retrieval_method}
+                        burden={msg.burden}
+                        model={msg.meta?.model}
+                      />
                       <span className="text-slate-500">
                         intent: {msg.routing.intent}
                       </span>
@@ -205,11 +248,12 @@ export default function Assistant() {
                         confidence:{" "}
                         {(msg.routing.routing_confidence * 100).toFixed(0)}%
                       </span>
-                      {msg.routing.fallback_applied && (
-                        <span className="badge border-amber-500/40 bg-amber-500/10 text-amber-400">
-                          fallback
-                        </span>
-                      )}
+                      {msg.routing.fallback_applied &&
+                        msg.retrieval_method !== "general_fallback" && (
+                          <span className="badge border-amber-500/40 bg-amber-500/10 text-amber-400">
+                            fallback
+                          </span>
+                        )}
                     </div>
                   )}
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.router.pipeline import route_query, analyze_only
+from app.llmops.pipeline import observed_query
 from app.router.routing_policy import get_policy
 
 router = APIRouter(prefix="/api/router", tags=["Intelligent Router"])
@@ -84,7 +85,7 @@ def router_analyze(request: RouterAnalyzeRequest):
 @router.post("/query")
 def router_query(request: RouterQueryRequest):
     try:
-        result = route_query(
+        result = observed_query(
             query=request.query,
             document_id=request.document_id,
             force_engine=request.force_engine,

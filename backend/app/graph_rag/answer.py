@@ -60,31 +60,29 @@ def _build_graph_context(evidence: dict):
     return "\n".join(blocks) if blocks else "(no graph evidence)"
 
 
-def generate_graph_answer(query: str, depth: int = 2):
+def generate_graph_answer(
+    query: str,
+    depth: int = 2,
+    complexity_info: dict | None = None,
+    document_id: str | None = None,
+):
     api_key = os.getenv("GROQ_API_KEY")
-    model_name = os.getenv("GROQ_MODEL")
+    model_name = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
     if not api_key:
         raise RuntimeError("GROQ_API_KEY is not configured.")
-    if not model_name:
-        raise RuntimeError("GROQ_MODEL is not configured.")
 
-    evidence = retrieve_graph_evidence(query=query, depth=depth)
+    evidence = retrieve_graph_evidence(
+        query=query, depth=depth, document_id=document_id
+    )
 
     if not evidence["matched_entities"] and not evidence["relationships"]:
-        return {
-            "answer": (
-                "I could not find matching entities or relationships in "
-                "the knowledge graph for this question."
-            ),
-            "matched_entities": [],
-            "relationships": [],
-            "sources": [],
-            "traversal_depth": evidence["traversal_depth"],
-            "retrieval_method": "graph",
-            "model": model_name,
-            "usage": {},
-        }
+        from app.vector_rag.answer import _general_fallback
+        return _general_fallback(
+            query=query,
+            reason="no_graph_evidence",
+            complexity_info=complexity_info,
+        )
 
     graph_context = _build_graph_context(evidence)
 
@@ -107,6 +105,8 @@ def generate_graph_answer(query: str, depth: int = 2):
     )
 
     answer_text = response.choices[0].message.content
+    if not answer_text or not answer_text.strip():
+        raise RuntimeError("The LLM provider returned an empty answer.")
 
     # Build citations
     sources = []

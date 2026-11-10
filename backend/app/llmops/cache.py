@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parents[3]
 load_dotenv(BASE_DIR / ".env")
 
-CACHE_VERSION = "v1"
+CACHE_VERSION = "v2"
 
 _client = None
 _disabled = False
@@ -76,6 +76,8 @@ def set(
     document_id: str | None = None,
     ttl_seconds: int | None = None,
 ):
+    if not result or not result.get("answer"):
+        return False
     client = _get_client()
     if client is None:
         return False

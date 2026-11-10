@@ -5,6 +5,7 @@ from app.vector_rag.pipeline import index_document
 from app.vector_rag.retriever import retrieve_chunks
 from app.vector_rag.answer import generate_answer
 from app.core.database import get_all_documents
+from app.llmops.cache import flush as flush_query_cache
 
 router = APIRouter(prefix="/api/vector", tags=["Vector RAG"])
 
@@ -18,16 +19,19 @@ class SearchRequest(BaseModel):
 class QuestionRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int = Field(default=5, ge=1, le=20)
+    document_id: str | None = None
 
 
 @router.post("/index/{document_id}")
 def index_single_document(document_id: str):
     try:
         result = index_document(document_id)
+        cache_invalidated = flush_query_cache()
         return {
             "success": True,
             "message": "Document indexed successfully",
             "result": result,
+            "cache_invalidated": cache_invalidated,
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -57,6 +61,7 @@ def index_all_documents():
         except Exception as exc:
             failed.append({"document_id": doc["id"], "error": str(exc)})
 
+    cache_invalidated = flush_query_cache() if indexed else False
     return {
         "success": True,
         "total_documents": len(documents),
@@ -64,6 +69,7 @@ def index_all_documents():
         "failed_count": len(failed),
         "indexed": indexed,
         "failed": failed,
+        "cache_invalidated": cache_invalidated,
     }
 
 
@@ -95,6 +101,7 @@ def vector_question(request: QuestionRequest):
         result = generate_answer(
             query=request.query,
             top_k=request.top_k,
+            document_id=request.document_id,
         )
         return {
             "success": True,
@@ -105,7 +112,8 @@ def vector_question(request: QuestionRequest):
         raise HTTPException(status_code=503, detail=str(error))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    except Exception:
+    except Exception as error:
         raise HTTPException(
-            status_code=500, detail="Question answering failed."
+            status_code=500,
+            detail=f"Question answering failed: {error}",
         )

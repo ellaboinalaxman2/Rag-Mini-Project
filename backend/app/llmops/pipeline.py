@@ -110,8 +110,8 @@ def observed_query(
         fallback=fallback,
     )
 
-    # --- Store in cache (only on success) ---
-    if use_cache and cache.is_enabled():
+    # --- Store in cache (only on success with non-empty answer) ---
+    if use_cache and cache.is_enabled() and result.get("answer"):
         # Store without the transient latency/cache fields
         to_cache = {k: v for k, v in result.items() if k not in (
             "cache_hit", "total_latency_ms"

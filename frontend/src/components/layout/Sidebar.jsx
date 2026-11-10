@@ -14,14 +14,13 @@ const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/assistant", label: "AI Assistant", icon: MessageSquare },
   { to: "/documents", label: "Documents", icon: FileText },
-  { to: "/graph", label: "Knowledge Graph", icon: Network, soon: true },
-  { to: "/routing", label: "Routing Analytics", icon: Route, soon: true },
-  { to: "/monitoring", label: "LLMOps Monitoring", icon: Activity, soon: true },
+  { to: "/graph", label: "Knowledge Graph", icon: Network },
+  { to: "/routing", label: "Routing Analytics", icon: Route },
+  { to: "/monitoring", label: "LLMOps Monitoring", icon: Activity },
   {
     to: "/evaluation",
     label: "Evaluation Center",
     icon: FlaskConical,
-    soon: true,
   },
 ];
 

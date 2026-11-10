@@ -96,7 +96,7 @@ export default function Documents() {
             </div>
           </div>
           {uploadError && (
-            <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+            <div role="alert" className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
               {uploadError}
             </div>
           )}

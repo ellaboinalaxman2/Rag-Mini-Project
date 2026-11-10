@@ -18,6 +18,7 @@ export default function Documents() {
   const inputRef = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
+  const [uploadNotice, setUploadNotice] = useState("");
   const [busy, setBusy] = useState({});
 
   const docsQuery = useQuery({
@@ -31,12 +32,17 @@ export default function Documents() {
 
     setUploading(true);
     setUploadError(null);
+    setUploadNotice("");
     try {
-      await uploadDocument(file);
+      const result = await uploadDocument(file);
+      setUploadNotice(
+        `${result.document.filename} was uploaded and vector-indexed. Build its knowledge graph with the Graph action when needed.`,
+      );
       await queryClient.invalidateQueries({ queryKey: ["documents"] });
       if (inputRef.current) inputRef.current.value = "";
     } catch (err) {
       setUploadError(err.message);
+      await queryClient.invalidateQueries({ queryKey: ["documents"] });
     } finally {
       setUploading(false);
     }
@@ -96,8 +102,13 @@ export default function Documents() {
             </div>
           </div>
           {uploadError && (
-            <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+            <div role="alert" className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
               {uploadError}
+            </div>
+          )}
+          {uploadNotice && (
+            <div role="status" className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">
+              {uploadNotice}
             </div>
           )}
         </div>

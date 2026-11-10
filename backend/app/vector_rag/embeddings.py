@@ -1,3 +1,4 @@
+import os
 from sentence_transformers import SentenceTransformer
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
@@ -8,7 +9,10 @@ _model = None
 def get_embedding_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        try:
+            _model = SentenceTransformer(MODEL_NAME, local_files_only=True)
+        except Exception:
+            _model = SentenceTransformer(MODEL_NAME)
     return _model
 
 

@@ -20,10 +20,12 @@ def _run_vector(query: str, top_k: int, document_id: str | None):
         return [], str(exc), round((time.perf_counter() - start) * 1000, 1)
 
 
-def _run_graph(query: str, depth: int):
+def _run_graph(query: str, depth: int, document_id: str | None):
     start = time.perf_counter()
     try:
-        results = retrieve_graph_evidence(query=query, depth=depth)
+        results = retrieve_graph_evidence(
+            query=query, depth=depth, document_id=document_id
+        )
         return results, None, round((time.perf_counter() - start) * 1000, 1)
     except Exception as exc:
         return {
@@ -50,7 +52,9 @@ def hybrid_retrieve(
     vector_results, vector_error, vector_ms = _run_vector(
         query, vector_top_k, document_id
     )
-    graph_results, graph_error, graph_ms = _run_graph(query, graph_depth)
+    graph_results, graph_error, graph_ms = _run_graph(
+        query, graph_depth, document_id
+    )
 
     return {
         "vector_results": vector_results,

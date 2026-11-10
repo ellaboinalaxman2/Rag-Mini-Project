@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 75
 
+    VECTOR_RELEVANCE_THRESHOLD: float = 0.45
+
     # Hybrid RAG (Phase 6)
     HYBRID_VECTOR_WEIGHT: float = 0.5
     HYBRID_GRAPH_WEIGHT: float = 0.5

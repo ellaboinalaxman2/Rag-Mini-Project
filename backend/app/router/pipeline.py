@@ -19,6 +19,12 @@ def _normalize_response(query, engine_used, routing_meta, engine_result):
     answer = engine_result.get("answer")
     sources = engine_result.get("sources", []) or []
     retrieval_method = engine_result.get("retrieval_method", engine_used)
+    fallback_reason = (
+        engine_result.get("fallback_reason")
+        or routing_meta.get("fallback_reason")
+    )
+    burden = engine_result.get("burden") or routing_meta.get("burden")
+    burden_reason = engine_result.get("burden_reason") or routing_meta.get("burden_reason")
     model = engine_result.get("model")
     usage = engine_result.get("usage", {})
 
@@ -26,6 +32,9 @@ def _normalize_response(query, engine_used, routing_meta, engine_result):
         "query": query,
         "routing": routing_meta,
         "retrieval_method": retrieval_method,
+        "fallback_reason": fallback_reason,
+        "burden": burden,
+        "burden_reason": burden_reason,
         "engine_used": engine_used,
         "answer": answer,
         "sources": sources,
@@ -87,9 +96,24 @@ def route_query(
         document_id=document_id,
         vector_top_k=policy["vector_top_k"],
         graph_depth=policy["graph_depth"],
+        complexity_info=complexity,
     )
 
     # --- 4. Build routing metadata ---
+    engine_result = exec_result["result"]
+    is_general_fallback = (
+        engine_result.get("retrieval_method") == "general_fallback"
+    )
+    fallback_applied = (
+        exec_result["fallback_applied"] or is_general_fallback
+    )
+    fallback_reason = (
+        engine_result.get("fallback_reason")
+        or exec_result["fallback_reason"]
+    )
+    burden = engine_result.get("burden")
+    burden_reason = engine_result.get("burden_reason")
+
     routing_meta = {
         "selected_engine": decision["selected_engine"],
         "engine_used": exec_result["engine_used"],
@@ -103,11 +127,13 @@ def route_query(
         "relationship_complexity": complexity["relationship_complexity"],
         "estimated_hops": complexity["estimated_hops"],
         "overall_complexity": complexity["overall_complexity"],
+        "burden": burden,
+        "burden_reason": burden_reason,
         "routing_confidence": decision["confidence"],
         "scores": decision["scores"],
         "reason": decision["reason"],
-        "fallback_applied": exec_result["fallback_applied"],
-        "fallback_reason": exec_result["fallback_reason"],
+        "fallback_applied": fallback_applied,
+        "fallback_reason": fallback_reason,
         "features": {
             "relationship_hits": features["relationship_hits"],
             "semantic_hits": features["semantic_hits"],
@@ -121,7 +147,7 @@ def route_query(
         query=query,
         engine_used=exec_result["engine_used"],
         routing_meta=routing_meta,
-        engine_result=exec_result["result"],
+        engine_result=engine_result,
     )
 
 

@@ -31,6 +31,17 @@ def initialize_database():
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS evaluation_runs (
+                id TEXT PRIMARY KEY,
+                created_at TEXT NOT NULL,
+                case_count INTEGER NOT NULL,
+                summary_json TEXT NOT NULL,
+                results_json TEXT NOT NULL
+            )
+            """
+        )
         connection.commit()
 
 
