@@ -67,17 +67,17 @@ Documents uploaded before automatic vector indexing was added may need the **Vec
 
 Important `.env` settings:
 
-| Variable | Purpose |
-| --- | --- |
-| `GROQ_API_KEY` | Required for generated answers and graph extraction |
-| `GROQ_MODEL` | Model used for evidence-grounded answers |
-| `GROQ_LIGHT_MODEL` | Model for low-burden general questions |
-| `GROQ_MEDIUM_MODEL` | Model for medium-burden general questions |
-| `GROQ_HEAVY_MODEL` | Model for high-burden general questions |
-| `VECTOR_RELEVANCE_THRESHOLD` | Minimum vector similarity to use document evidence |
-| `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD` | Neo4j connection |
-| `REDIS_URL`, `CACHE_ENABLED`, `CACHE_TTL_SECONDS` | Query cache settings |
-| `VITE_API_URL` | Frontend API base URL |
+| Variable                                          | Purpose                                             |
+| ------------------------------------------------- | --------------------------------------------------- |
+| `GROQ_API_KEY`                                    | Required for generated answers and graph extraction |
+| `GROQ_MODEL`                                      | Model used for evidence-grounded answers            |
+| `GROQ_LIGHT_MODEL`                                | Model for low-burden general questions              |
+| `GROQ_MEDIUM_MODEL`                               | Model for medium-burden general questions           |
+| `GROQ_HEAVY_MODEL`                                | Model for high-burden general questions             |
+| `VECTOR_RELEVANCE_THRESHOLD`                      | Minimum vector similarity to use document evidence  |
+| `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`   | Neo4j connection                                    |
+| `REDIS_URL`, `CACHE_ENABLED`, `CACHE_TTL_SECONDS` | Query cache settings                                |
+| `VITE_API_URL`                                    | Frontend API base URL                               |
 
 Use model identifiers available to your configured Groq account. The application returns provider/indexing errors to the UI rather than treating an empty model response as a successful answer.
 
@@ -106,3 +106,14 @@ npm run build
 - Query counters, latency samples, token counts, and cost estimates are maintained by the running backend process and reset when it restarts.
 - Estimated costs use the configured per-model pricing values and are for operational guidance, not billing.
 - Evaluation answer F1 is a lexical token-overlap metric, not a semantic or LLM-judge score. Evaluation requests run the router directly and are not added to live LLMOps query counters.
+
+## scripts
+
+- root : docker compose up -d neo4j
+  docker compose ps
+
+- backend : .\venv\Scripts\Activate.ps1
+  python -m uvicorn app.main:app --reload --port 8001
+
+- frontend : npm install
+  npm run dev
